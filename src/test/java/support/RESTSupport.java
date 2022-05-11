@@ -1,17 +1,17 @@
 package support;
 
 import static com.jayway.restassured.RestAssured.given;
-
-import java.util.Map;
-
+import java.util.HashMap;
 import com.jayway.restassured.http.ContentType;
-import com.jayway.restassured.response.Header;
+import com.jayway.restassured.internal.RequestSpecificationImpl;
 import com.jayway.restassured.response.Response;
 import com.jayway.restassured.specification.RequestSpecification;
-
 import groovy.json.internal.LazyMap;
 
 public class RESTSupport {
+
+    private static RequestSpecification rs;
+    private static HashMap<String, String> rsHeader = new HashMap<String, String>();
 
     private static Response response;
 
@@ -23,92 +23,88 @@ public class RESTSupport {
         RESTSupport.response = response;
     }
 
-    private static RequestSpecification buildBaseRequestSpecification() {
+    public static void clearRs(){
+        rs = null;
+    }
 
-        RequestSpecification rs = given()
-        .when()
-        .contentType(ContentType.JSON)
-        .accept(ContentType.JSON);
+    private static RequestSpecification buildBaseRequestSpecification() {
+        clearRs();
+
+        rs = given()
+                .headers(rsHeader)
+                .when()
+                .contentType(ContentType.JSON)
+                .accept(ContentType.JSON);
+
         return rs;
     }
 
-    private static void addHeader(Header h, RequestSpecification rs) {
-        if (h != null) {
-            rs.header(h);
-        }
-    }
-
-    private static void addCookies(Map<String, String> c, RequestSpecification rs) {
-        if (c != null) {
-            rs.cookies(c);
-        }
+    public static void addHeader(String key, String value) {
+        rsHeader.put(key, value);
     }
 
     public static void executeGet(String endpoint, Integer statusCode) {
         response = buildBaseRequestSpecification()
-                .accept("*/*")
                 .get(endpoint)
                 .then()
                 .statusCode(statusCode)
                 .extract().response();
-        printLog(response.getBody().asString(),endpoint,"");
+        printLogStart("GET",endpoint, "");
+        printLog("GET",response);
         setResponse(response);
     }
 
     public static Response executeGet(String endpoint) {
         response = buildBaseRequestSpecification()
-                .accept("*/*")
                 .get(endpoint)
                 .then()
                 .extract().response();
-        printLog(response.getBody().asString(),endpoint,"");
+        printLogStart("GET", endpoint, "");
+        printLog("GET", response);
         return response;
     }
 
     public static Response executePost(String endpoint, Integer statusCode, LazyMap json) {
-        System.out.println("JSON -> " + json.toString());
-
         response = buildBaseRequestSpecification()
                 .body(json)
                 .post(endpoint)
                 .then()
                 .statusCode(statusCode)
                 .extract().response();
-        printLog(response.getBody().asString(),endpoint, json.toString());
+        printLogStart("POST",endpoint, json.toString());
+        printLog("POST",response);
         return response;
     }
 
-    public static Response executePost(String endpoint, LazyMap json) {
-        System.out.println("JSON -> " + json.toString());
-
+    public static Response executePost(String endpoint, HashMap<String, Object> json) {
         response = buildBaseRequestSpecification()
                 .body(json)
                 .post(endpoint)
                 .then()
                 .extract().response();
-        printLog(response.getBody().asString(),endpoint, json.toString());
+        printLogStart("POST",endpoint, json.toString());
+        printLog("POST",response);
         return response;
     }
 
     public static Response executePut(String endpoint, LazyMap json) {
-        System.out.println("JSON -> " + json.toString());
-
         response = buildBaseRequestSpecification()
                 .body(json)
                 .put(endpoint)
                 .then()
                 .extract().response();
-        printLog(response.getBody().asString(),endpoint, json.toString());
+        printLogStart("PUT",endpoint, json.toString());
+        printLog("PUT",response);
         return response;
     }
 
     public static Response executeDelete(String endpoint) {
-
         response = buildBaseRequestSpecification()
                 .delete(endpoint)
                 .then()
                 .extract().response();
-        printLog(response.getBody().asString(),endpoint, "");
+        printLogStart("DELETE",endpoint, "");
+        printLog("DELETE",response);
         return response;
     }
 
@@ -117,31 +113,54 @@ public class RESTSupport {
                 .options(endpoint)
                 .then()
                 .extract().response();
-        printLog(response.getBody().asString(),endpoint,"");
+        printLogStart("OPTIONS",endpoint, "");
+        printLog("OPTIONS",response);
         return response;
     }
 
     public static Response executePatch(String endpoint, LazyMap json) {
-        System.out.println("JSON -> " + json.toString());
-
         response = buildBaseRequestSpecification()
                 .body(json)
                 .patch(endpoint)
                 .then()
                 .extract().response();
-        printLog(response.getBody().asString(),endpoint, json.toString());
+        printLogStart("PATCH",endpoint, json.toString());
+        printLog("PATCH",response);
         return response;
     }
 
-    private static void printLog(String response, String url, String json){
+    private static void printLogStart(String method, String url, String json){
         System.out.println("");
         System.out.println("====================================");
         System.out.println("");
-        System.out.println("Endpoint => "+ url);
+        System.out.println("METHOD: [ "+ method + " (Request) ]");
+        System.out.println("Endpoint: [ "+ url + " ]");
+        System.out.println("Headers: [ "+ ((RequestSpecificationImpl) rs).getHeaders().toString() + " ]");
+        System.out.println("Body - Request: [ " + json + " ]");
+        /*
+        Hooks.scenario.write("METHOD: [ "+ method + " (Request) ]");
+        Hooks.scenario.write("Endpoint: [ "+ url + " ]");
+        Hooks.scenario.write("Headers: [ "+ ((RequestSpecificationImpl) rs).getHeaders().toString() + " ]");
+        Hooks.scenario.write("Body - Request: [ " + json + " ]");
+         */
+    }
+
+    private static void printLog(String method, Response response){
         System.out.println("");
-        System.out.println("Body - Request => " + json);
+        System.out.println("------------------------------------");
         System.out.println("");
-        System.out.println("Response => "+ response);
+        System.out.println("METHOD: [ "+ method + " (Response) ]");
+        System.out.println("Status Code: [ "+ String.valueOf(response.statusCode()) + " ]");
+        System.out.println("Response: [ "+ response.getBody().asString() + " ]");
+        System.out.println("");
+        System.out.println("====================================");
+        /*
+        Hooks.scenario.write("------------------------------------");
+        Hooks.scenario.write("METHOD: [ "+ method + " (Response) ]");
+        Hooks.scenario.write("Status Code: [ "+ String.valueOf(response.statusCode()) + " ]");
+        Hooks.scenario.write("Response: [ "+ response.getBody().asString() + " ]");
+        Hooks.scenario.write("");
+         */
     }
 
     public static Integer getResponseCode() {
@@ -150,5 +169,9 @@ public class RESTSupport {
 
     public static Object key(String field) {
         return response.getBody().jsonPath().get(field);
+    }
+
+    public static void clearHeader() {
+        rsHeader.clear();
     }
 }
